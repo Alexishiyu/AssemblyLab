@@ -35,72 +35,72 @@ Start
 	BL  Port_Init			; initialize input and output pins of Ports A to F
 	BL	Interrupt_Init		; Init interrupts for the switches on the Tiva for Lab #4
 
-	;MOV	R1, #0x4		; lower pitch beep
-	;BL	SpeakerBeep			; beep the spearker to mark start of code
 
-;
-;  There are two demos - the 7-segment driver (provided complete and functional)
-;    and the 8 LED routine Display_LED which is non-functional
-;
-;  To test the 8 LEDs first use the branch below, comment it out to start the demo using the 7-segment display
-
-	;B cyclon_start
 
 Start_Of_Demo
-
-buzzer_loop	
-	BL Check_Buttons	; return non zero Z status upon button press
-	BEQ buzzer_loop	; keep going if there is no button press	
-	B cyclon_start
-	BL Delay		; delay R1 x base delay
-
-
-cyclon_start
-; Cyclon eye
-	LDR R2, =GPIO_PORTB + (PORT_B_MASK << 2)
-    MOV R8, #2_11111111				; Turn on all port A LEDs
-    STR R8, [R2, #GPIO_DATA_OFFSET]	; write the data out to the port / LEDs
-    
-	
-	LDR R2, =GPIO_PORTE + (PORT_E_MASK << 2)
-    MOV R8, #2_0000010				; Turn on all port A LEDs
-    STR R8, [R2, #GPIO_DATA_OFFSET]	; write the data out to the port / LEDs
-    BL Delay
-cylon_next_init_shift
-	MOV R11, #1		; always start counting from zero with a new port
-	
-cylon_left
-	MOV R0, R11
+	MOV R5, #0		; display starting from 0
+	MOV R4, #0x2710	; this delay should be random number
+    MOV	R11, #0xABCD	
+    BL RandomNum
+	BL Delay		; delay R1 x base delay	
+	MOV R0,#2_00000010
 	BL Display_LED
-	MOV R1, #600	; short delay
-	BL Delay		
-	BL Check_Buttons	; return non zero Z status upon button press
-	BNE done_cylon
-	LSL R11, #1		; rotate bits
-	ANDS R0, R11, #0x80	; reverse when we hit the last bit
-	BEQ cylon_left	; if we hit the 256 then check for a button press
+    BL POLL
+DisplayLoop		
+				MOV R5, R9		; Display the first 8-bit 
+				BL Display_Number
+				
+			;	MOV R0,R9
+			;	BL Display_LED
+				
+				LSR R5, #8
+				MOV R4, #0x4E20
+				BL Delay	; Delay for 2 seconds
+				BL Display_Number ; Display the next 8 bits
+				
+;				LSR R0, #8
+			;	BL Display_LED
+				
+				LSR R5, #8
+				MOV R4, #0x4E20
+				BL Delay	; Delay for 2 seconds
+				BL Display_Number  ; Display the next 8 bits
+				
+		;		LSR R0, #8
+		;		BL Display_LED
+				
+				LSR R5, #8
+				MOV R4, #0x4E20
+				BL Delay	; Delay for 2 seconds
+				BL Display_Number  ; Display the final 8 bits
+				
+			;	LSR R0, #8
+			;	BL Display_LED
+				
+				MOV R4, #0xC350
+				BL Delay	; Delay for 5 seconds 
+				B DisplayLoop
 
-cyclon_right
-	MOV R0, R11
-	BL Display_LED
-	MOV R1, #600		; short delay
-	BL Delay		
-	BL Check_Buttons	; return non zero Z status upon button press
-	BNE done_cylon
-	LSR R11, #1
-	ANDS R0, R11, #0x1		; have we hit the start - if so reverse
-	BEQ cyclon_right
-	B cylon_left
-
-done_cylon
-	MOV	R1, #0x2		; high pitch beep
-;	BL	SpeakerBeep
-	MOV R1, #0x700	; delay to prevent detecting an immediate 2nd key press before the user lets go - horrible way to debounce the button
-	BL Delay		; delay R1 x base delay
-
-	B Start_Of_Demo
-
-
+	
+SOMEDELAY             EQU 400      ; faction of a second delay
+POLL			STMFD		R13!,{R1, R2, R3, R14}
+		;
+		; code to generate a delay of 0.1mS * R0 times
+		;
+				MOV R9, #1
+									
+MultipleLoop2	
+				LDR	R2,=SOMEDELAY
+loopMore2		
+				SUBS	R2, #1			
+				BNE	loopMore2
+				ADD R9, R9, #1	; increments one every 0.1 millisecond
+				;AND R9, #0xff
+				BL Check_Buttons		; return non zero Z status upon button press
+	            BEQ MultipleLoop2	; keep going if there is no button press
+				
+			
+exitDelay		LDMFD		R13!,{R1, R2, R3, R15}
 ; ----------Display_LED----------------
 ; Display the 8-bit number on the 8 LEDs
 ; Input: R0
@@ -162,6 +162,9 @@ Display_Number
 	AND R0, #0xFB
 	ORR R0, R0, R6
 	STR R0, [R2, #GPIO_DATA_OFFSET]		; write segment C to port E2
+	
+	;MOV R4, #0x2710
+	;BL Delay
 
 ; Now handle 7-segment #1 with the 4 LSB
 	POP {R5}
@@ -217,60 +220,67 @@ Check_Buttons
 ; Ensure that each beep is about the same length - 0x300 loops of delay loop
 ; Input: R1 sets the tone - 2 is a high pitch
 ; Output: none
-
-SpeakerBeep
-	STMFD		R13!,{R1-R3, R11, R14}		; push the LR or return address
-
-	MOV R3, #0x300
-	UDIV R3, R1		; loop the tone R1 / R3 times to ensure a total of 0x100 delays for all tones
-	
-	LDR R2, =GPIO_PORTE + (PORT_E_MASK << 2)
-	LDR R11, [R2, #GPIO_DATA_OFFSET]		; get the initial value - read-modify-write to only change 2 bits
-	AND R11, #0xcf							; clear two bits that the speaker is on
-	ORR R11, #0x10		; initial speaker output (one side high 0x10, the other low 0x20)
-buzz_loop
-;	MOV R1, #2			; high pitched buzz to start
-	BL Delay			; delay
-	EOR R11, #0x30
-	STR R11, [R2, #GPIO_DATA_OFFSET]
-	SUBS R3, #1
-	BNE buzz_loop
-	LDMFD		R13!,{R1-R3, R11, R15}		; pull the LR or return address and return
-	
-; Delay subroutine - delay for a fixed amount of time
-; Input: R1 - how many times do we multiply the fixed delay
-; Output: none
-
-SOMEDELAY             EQU 1000      ; faction of a second delay
-
-Delay
-	STMFD		R13!,{R0, R1, R14}		; push the LR or return address
-
-delay_outer_loop
-	TEQ R1, #0
-	BEQ done_delay
-	SUB R1, #1
-	LDR R0, =SOMEDELAY   	       ; R0 = a value to get about a second delay
-delay_loop
-    SUBS R0, R0, #1                 ; R0 = R0 - 1 (count = count - 1) and set N, Z, C status bits
-	BNE	delay_loop
-	B delay_outer_loop
-	; Note: For SUBs the "s" suffix means to set the status bits, without this the loops would not exit
-done_delay
-	LDMFD		R13!,{R0, R1, R15}		; pull the LR or return address and return
-
-
+;------------RandomNum------------
+; R11 holds a 16-bit random number via a pseudo-random sequence as per the Linear feedback shift register (Fibonacci) on WikiPedia
+; R11 holds a non-zero 16-bit number.  If a zero is fed in, as the seed, the pseudo-random sequence will stay stuck at 0
+; Take as many bits of R11 as you need.  If you take the lowest 4 bits then you get a number between 1 and 15.
+;   If you take bits 5..1 you'll get a number between 0 and 15 (assuming you right shift by 1 bit).
 ;
-; Code to setup interrupts
-; Table 10-4 GPIO Interrupt Configuration Example
+; R11 MUST be initialized to a non-zero 16-bit value at the start of the program OR ELSE!
+; R11 can be read anywhere in the code but must only be written to by this subroutine
+;
+RandomNum		STMFD		R13!,{R1, R2, R3, R14}
+
+				AND			R1, R11, #0x8000
+				AND			R2, R11, #0x2000
+				LSL			R2, #2
+				EOR			R3, R1, R2
+				AND			R1, R11, #0x1000
+				LSL			R1, #3
+				EOR			R3, R3, R1
+				AND			R1, R11, #0x0400
+				LSL			R1, #5
+				EOR			R3, R3, R1		; the new bit to go into the LSB is present
+				LSR			R3, #15
+				LSL			R11, #1
+				ORR			R11, R11, R3
+				
+				LDMFD		R13!,{R1, R2, R3, R15}
+;------------Poll------------
+;SOMEDELAY             EQU 4000000     ; 0.1ms delay
+
+
+;------------wtf------------
+
+;	BX LR
+;------------DELAY------------
+
+				
+
+
+Delay			STMFD		R13!,{R0,R2, R14}
+		;
+		; code to generate a delay of 0.1mS * R0 times
+		;
+				
+				MOV R0, R4				
+MultipleLoop	
+                LDR	R2, =SOMEDELAY  
+loopMore		
+                SUBS	R2, #1			
+				BNE	loopMore
+				SUBS R0, #1;
+				BNE MultipleLoop
+			
+				LDMFD		R13!,{R0,R2, R15}
 
 
 ; Registers have one bit (starting at LSB - same as other I/O such as LEDS) for each I/O pin
 
-GPIO_IS_OFFSET  EQU 0x404	;GPIOIS - Interrupt Sense : 0 = edge, 1 = level interrupt
+GPIO_IS_OFFSET   EQU 0x404	;GPIOIS - Interrupt Sense : 0 = edge, 1 = level interrupt
 GPIO_IBE_OFFSET  EQU 0x408	;GPIOIBE - Interrupt Both Edges : 0 = single edge, 1 = both edges
 GPIO_IEV_OFFSET  EQU 0x40c	;GPIOIEV - Interrupt Event : 0 = low level or falling edge, 1= high level or rising edge
-GPIO_IM_OFFSET  EQU 0x410	;GPIOIM - Interrupt Mask : 0 = masked, 1 = unmasked
+GPIO_IM_OFFSET   EQU 0x410	;GPIOIM - Interrupt Mask : 0 = masked, 1 = unmasked
 GPIO_RIS_OFFSET  EQU 0x414		; Raw Interrupt Status - READ ONLY
 GPIO_MIS_OFFSET  EQU 0x418		; Masked Interrupt Status - READ ONLY
 GPIO_ICR_OFFSET  EQU 0x41c		; Interrupt Clear - writing a 1 clears the RIS and MIS registers
@@ -466,7 +476,9 @@ Port_Init
 
 	LDMFD		R13!,{R15}		; pull the LR or return address from the stack and return
 
+;----------------------------------------------------------
 
+;-----------------------------------------------------------
 ;------------Port_Init_Individual------------
 ; Initialize one GPIO Port with select bits as inputs or outputs
 ; Output: none
