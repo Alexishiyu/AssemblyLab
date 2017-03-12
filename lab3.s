@@ -40,66 +40,67 @@ Start
 Start_Of_Demo
 	MOV R5, #0		; display starting from 0
 	MOV R4, #0x2710	; this delay should be random number
-    MOV	R11, #0xABCD	
+  BL CountingLoop
+    MOV	R11, #0xABCD
     BL RandomNum
-	BL Delay		; delay R1 x base delay	
+	BL Delay		; delay R1 x base delay
 	MOV R0,#2_00000010
 	BL Display_LED
     BL POLL
-DisplayLoop		
-				MOV R5, R9		; Display the first 8-bit 
+DisplayLoop
+				MOV R5, R9		; Display the first 8-bit
 				BL Display_Number
-				
+
 			;	MOV R0,R9
 			;	BL Display_LED
-				
+
 				LSR R5, #8
 				MOV R4, #0x4E20
 				BL Delay	; Delay for 2 seconds
 				BL Display_Number ; Display the next 8 bits
-				
+
 ;				LSR R0, #8
 			;	BL Display_LED
-				
+
 				LSR R5, #8
 				MOV R4, #0x4E20
 				BL Delay	; Delay for 2 seconds
 				BL Display_Number  ; Display the next 8 bits
-				
+
 		;		LSR R0, #8
 		;		BL Display_LED
-				
+
 				LSR R5, #8
 				MOV R4, #0x4E20
 				BL Delay	; Delay for 2 seconds
 				BL Display_Number  ; Display the final 8 bits
-				
+
 			;	LSR R0, #8
 			;	BL Display_LED
-				
+
 				MOV R4, #0xC350
-				BL Delay	; Delay for 5 seconds 
+				BL Delay	; Delay for 5 seconds
 				B DisplayLoop
 
-	
+
 SOMEDELAY             EQU 400      ; faction of a second delay
 POLL			STMFD		R13!,{R1, R2, R3, R14}
 		;
 		; code to generate a delay of 0.1mS * R0 times
 		;
 				MOV R9, #1
-									
-MultipleLoop2	
+
+MultipleLoop2
 				LDR	R2,=SOMEDELAY
-loopMore2		
-				SUBS	R2, #1			
+loopMore2
+				SUBS	R2, #1
 				BNE	loopMore2
 				ADD R9, R9, #1	; increments one every 0.1 millisecond
 				;AND R9, #0xff
 				BL Check_Buttons		; return non zero Z status upon button press
 	            BEQ MultipleLoop2	; keep going if there is no button press
-				
-			
+
+
 exitDelay		LDMFD		R13!,{R1, R2, R3, R15}
 ; ----------Display_LED----------------
 ; Display the 8-bit number on the 8 LEDs
@@ -116,6 +117,7 @@ Display_LED
 	STR R0, [R2, #GPIO_DATA_OFFSET]		; write output to port B where the LEDs are
 
 	LDR R2, =GPIO_PORTE + (PORT_E_MASK << 2)
+  EOR R0, R0, #0x02
 	STR R0, [R2, #GPIO_DATA_OFFSET]		; write output to port B where the LEDs are
 
 	LDMFD		R13!,{R2, R15}		; pull the LR or return address and return
@@ -142,27 +144,27 @@ Display_Number
 	LDRH R4, [R9, R0]		; table base + offset * 2
 	EOR R4, #0xfe		; active low 7-segment so invert the bits going out and remove the DP on bit 0
 	; DP is Bit 0, then A, B, C, D, E, F, G (bit 7)
-	
-; Display least byte on Seven_Segment_2	
+
+; Display least byte on Seven_Segment_2
 	MOV R6, #0	; R5 is the output to port C, segment C
 	MOV R9, R4
 	LSL R4, #1		; port A bits 0 and 1 are unused, data already has DP in LSB
-	
+
 	ANDS R0, R4, #0x10	; test segment C
 	ORRNE R6, #0x4		; segment C is bit 4 on port C - CHANGED to E2
-	
+
 	AND R4, #0xEF	; clear bit 4
 	ANDS R0, R9, #0x80	; segment G goes into bit 4
 	ORRNE R4, #0x10	; set bit 4 if G segment is a 1
 	LDR R2, =GPIO_PORTA + (PORT_A_MASK << 2)
 	STR R4, [R2, #GPIO_DATA_OFFSET]		; write output to port A, A segment is big 2, bit 4 is G, C goes elsewhere
-	
+
 	LDR R2, =GPIO_PORTE + (PORT_E_MASK << 2)
 	LDR R0, [R2, #GPIO_DATA_OFFSET]		; read, insert bit 4 and write back port E2
 	AND R0, #0xFB
 	ORR R0, R0, R6
 	STR R0, [R2, #GPIO_DATA_OFFSET]		; write segment C to port E2
-	
+
 	;MOV R4, #0x2710
 	;BL Delay
 
@@ -182,7 +184,7 @@ Display_Number
 	LSL R1, #2
 	LDR R2, =GPIO_PORTF + (PORT_F_MASK << 2)
 	STR R1, [R2, #GPIO_DATA_OFFSET]		; write out Segment 1 A, B into F2, F3
-		
+
 	AND R0, #0x0f	; clear all but lower nibble as they're direct out
 	; build into R1 the upper 2 bits and or it back in
 	ANDS R1, R4, #0x40	; segment F
@@ -191,17 +193,17 @@ Display_Number
 	ORRNE R0, #0x40
 	LDR R2, =GPIO_PORTD + (PORT_D_MASK << 2)
 	STR R0, [R2, #GPIO_DATA_OFFSET]		; write output to port D four of the 7-segment #1 bits
-	
+
 	LDR R2, =GPIO_PORTE + (PORT_E_MASK << 2)
 	LDR R0, [R2, #GPIO_DATA_OFFSET]		; read-modify-write output to port D most of 7-segment #1 bits
 	AND R0, #0xFC	; zero all but two LSB as those are what we're updating
-	
+
 	ANDS R1, R4, #0x80		; test segment G
 	ORRNE R0, #0x1			; insert segment G into LSB
 	ANDS R1, R4, #0x1		; test segment DP
 	ORRNE R0, #0x2			; insert segment DP into bit 1
 	STR R0, [R2, #GPIO_DATA_OFFSET]		; write output to port D most of 7-segment #1 bits
-	
+
 	LDMFD		R13!,{R0-R7, R9, R15}		; pull the LR or return address and return
 
 ; Check Tiva Buttons subroutine
@@ -244,7 +246,7 @@ RandomNum		STMFD		R13!,{R1, R2, R3, R14}
 				LSR			R3, #15
 				LSL			R11, #1
 				ORR			R11, R11, R3
-				
+
 				LDMFD		R13!,{R1, R2, R3, R15}
 ;------------Poll------------
 ;SOMEDELAY             EQU 4000000     ; 0.1ms delay
@@ -255,25 +257,45 @@ RandomNum		STMFD		R13!,{R1, R2, R3, R14}
 ;	BX LR
 ;------------DELAY------------
 
-				
+
 
 
 Delay			STMFD		R13!,{R0,R2, R14}
 		;
 		; code to generate a delay of 0.1mS * R0 times
 		;
-				
-				MOV R0, R4				
-MultipleLoop	
-                LDR	R2, =SOMEDELAY  
-loopMore		
-                SUBS	R2, #1			
+
+				MOV R0, R4
+MultipleLoop
+                LDR	R2, =SOMEDELAY
+loopMore
+                SUBS	R2, #1
 				BNE	loopMore
 				SUBS R0, #1;
 				BNE MultipleLoop
-			
+
 				LDMFD		R13!,{R0,R2, R15}
 
+CountingLoop	STMFD		R13!,{R0,R1,R4,R5,R14}
+        				;need to loop: counter, delay, display
+        				;ALL EQU #11111111
+        				MOV R5, #0
+        				MOV R4, #5000   ;delay of 0.5 seconds
+        				;LDR R1, =ALL
+LoopCounter
+        				MOV R0, R5
+        				BL Display_LED
+        				BL Display_Number
+
+
+
+        				EORS R1, R5, #0xFF
+
+        				MOVEQ R5, #0
+        				ADD R5, #1
+        				BL Delay
+        				B LoopCounter
+        				LDMFD		R13!,{R0,R1,R4,R5,R15}
 
 ; Registers have one bit (starting at LSB - same as other I/O such as LEDS) for each I/O pin
 
@@ -294,7 +316,7 @@ Interrupt_Init
 ;GPIO edge and interrupt sense registers:
 
 ;a. Mask the corresponding port by clearing the IME field in the GPIOIM register.
-	
+
 	LDR R1, =GPIO_PORTF
     MOV R0, #0x00             ; 0 means mask or block interrupts
     STR R0, [R1, #GPIO_IM_OFFSET]	; mask interrupts from happening
@@ -302,13 +324,13 @@ Interrupt_Init
 ; b. Configure the IS field in the GPIOIS register and the IBE field in the GPIOIBE register.
 
     MOV R0, #0x00             ; 0 means edge detecting interrupt
-    STR R0, [R1, #GPIO_IS_OFFSET]	; 
+    STR R0, [R1, #GPIO_IS_OFFSET]	;
 
     MOV R0, #0x00             ; 0 means falling edge detecting
-    STR R0, [R1, #GPIO_IEV_OFFSET]	; 
+    STR R0, [R1, #GPIO_IEV_OFFSET]	;
 
     MOV R0, #0x00             ; 0 means single edge detection
-    STR R0, [R1, #GPIO_IBE_OFFSET]	; 
+    STR R0, [R1, #GPIO_IBE_OFFSET]	;
 
 ;c. Clear the GPIORIS register using the ICR register to clear any pending interrupts.
 ; The switches are bits 0 and 4
@@ -334,24 +356,24 @@ INTERRUPT_EN0_OFFSET 	EQU 0x100
 	STR R0, [R1, #INTERRUPT_EN0_OFFSET]		; GPIO Interrupts require this enable
 
 	LDMFD		R13!,{R15}		; push the LR or return address
-	
+
 ;Section 3.1.2 Nested Vector Interrupt Controller
 
 ;The Cortex-M4F processor supports interrupts and system exceptions. The processor and the
 ;Nested Vectored Interrupt Controller (NVIC) prioritize and handle all exceptions. An exception
 ;changes the normal flow of software control. The processor uses Handler mode to handle all
-;exceptions except for reset. See “Exception Entry and Return” on page 108 for more information.
-;The NVIC registers control interrupt handling. See “Nested Vectored Interrupt Controller
-;(NVIC)” on page 124 for more information.
+;exceptions except for reset. See ï¿½Exception Entry and Returnï¿½ on page 108 for more information.
+;The NVIC registers control interrupt handling. See ï¿½Nested Vectored Interrupt Controller
+;(NVIC)ï¿½ on page 124 for more information.
 
-;Table 3-8 on page 134 details interrupt Set / Clear 
+;Table 3-8 on page 134 details interrupt Set / Clear
 ; they allow one to enable individual interrupts and DIS? lets one disable individual interrupt numbers
 
 ; Table 2-9 Interrupts on page 104 details interrupt number / bit assignments
 ; Port F - Bit 30
 ; Timer 0A Bit 19
 ; Timer 0B Bit 20
- 
+
 ;For edge-triggered interrupts, software must clear the interrupt to enable any further interrupts.
 
 
@@ -370,7 +392,7 @@ INTERRUPT_EN0_OFFSET 	EQU 0x100
 
 GPIO_PORTF_DIR_R   EQU 0x40025400		; Port F Data Direction Register setting pins as input or output
 GPIO_PORTF_DATA_R  EQU 0x400253FC		; address for reading button inputs
-	
+
 ; These are the configuration registers which should not be touched
 ; Port Base addresses for the legacy (not high-performance) interface to I/O ports
 GPIO_PORTA			EQU 0x40004000
@@ -382,12 +404,12 @@ GPIO_PORTF			EQU 0x40025000
 
 ; These are the masks for pins which are outputs
 PORT_A_MASK			EQU 0xfc	;0xE0		; PA7,6,5 are outputs for LEDs
-PORT_B_MASK			EQU 0xff	;3f	; exclude B2:3 0xff	;33		; PB5,4,1,0 are outputs %0011 0011 
-PORT_C_MASK			EQU 0x30	; this hangs the CPU 0xf0	
+PORT_B_MASK			EQU 0xff	;3f	; exclude B2:3 0xff	;33		; PB5,4,1,0 are outputs %0011 0011
+PORT_C_MASK			EQU 0x30	; this hangs the CPU 0xf0
 PORT_D_MASK			EQU 0xcc	;exclude d7 0xcf	Disable D0, D1 due to short with B6, B7
 PORT_E_MASK			EQU 0x3f	;0x30		; PE5,4 are outputs %0011 0000
 PORT_F_MASK			EQU 0x0e		; PF has LEDs on PF 1,2,3 and buttons PF0, PF4 (don't enable buttons as outputs)
-	
+
 ; Offsets are from table 10-6 on page 660
 GPIO_DATA_OFFSET	EQU 0x000		; Data address is the base address - YOU HAVE TO ADD AN ADDRESS MASK TOO to read or write this!!
 GPIO_DIR_OFFSET		EQU 0x400		; Direction register
@@ -418,12 +440,12 @@ Port_Init
 ; First enable the clock to the I/O ports, by default the clocks are off to save power
 ; If a clock is not enabled to a port and you access it - then the processor hard faults
 	LDR R1, =SYSCTL_RCGCGPIO_R      ; activate clock for Ports (see page 340)
-    LDR R0, [R1]                 
+    LDR R0, [R1]
     ORR R0, R0, #0x3F               ; turn on clock to all 6 ports (A to F, bits 0 to 5)
-    STR R0, [R1]                  
+    STR R0, [R1]
     NOP
     NOP                             ; allow time for clock to finish
-	
+
 ; Set all ports to APB bus instead of AHB - this should be unnecessary
 ;	LDR R1, =SYSCTL_HBCTL
 ;	LDR R0, [R1]
@@ -441,7 +463,7 @@ Port_Init
 ; R3 is the input pin mask  (which bits get configured as inputs)
 
 	MOV R3, #0x00				; Select no pins as input (unless it's changed as for port F)
-	
+
 ; Init Port A, B, E are by default GPIO - set all output pins used to a 1 to enable them
 ;   and leave all of the other pins as previously configured!
     LDR R1, =GPIO_PORTA
@@ -501,7 +523,7 @@ Port_Init_Individual
     LDR R0, [R1, #GPIO_DIR_OFFSET]	; 5) read default direction register configuration
     ORR R0, R2						; ORR in only the bits we want as outputs
     STR R0, [R1, #GPIO_DIR_OFFSET]	; 5) set direction register
-    MOV R0, #0                      ; 0 means disable alternate function 
+    MOV R0, #0                      ; 0 means disable alternate function
     STR R0, [R1, #GPIO_AFSEL_OFFSET]	; 6) regular port function
     STR R3, [R1, #GPIO_PUR_OFFSET]	; pull-up resistors for PF4,PF0
     MOV R0, #0xFF                   ; 1 means enable digital I/O
@@ -519,6 +541,6 @@ Port_Table
 Seven_Seg_Table
 	DCW 0x7e, 0x0c, 0xb6, 0x9e, 0xcc, 0xda, 0xfa, 0x0e, 0xfe, 0xce	; 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
 	DCW 0xee, 0xf8, 0xb0, 0xbc, 0xf2, 0xe2		; A, B, C, D, E, F with LSB being 0 for the DP
-	
+
     ALIGN                           ; make sure the end of this section is aligned
     END                             ; end of file
