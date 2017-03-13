@@ -43,6 +43,14 @@ Start_Of_Demo
   BL CountingLoop
     MOV	R11, #0xABCD
     BL RandomNum
+
+MOV R8, #0x2FF
+	AND R4, R11, R8 ;get lowest 10 bits, range of possible values 0 to 1023(d)
+	MOV R8, #0x4E
+	MUL R4, R4, R8   ;multiply random number by 78(d) to get a range from 0 to 79794 (7.9 seconds)
+	MOV R8, #0x4E20
+	ADD R4, R4, R8 ;add 20 000(d) to get a range of 20000 to 99794 which is 2 to about 10 seconds
+
 	BL Delay		; delay R1 x base delay
 	MOV R0,#2_00000010
 	BL Display_LED
