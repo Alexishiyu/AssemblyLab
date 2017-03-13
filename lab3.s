@@ -117,7 +117,8 @@ Display_LED
 	STR R0, [R2, #GPIO_DATA_OFFSET]		; write output to port B where the LEDs are
 
 	LDR R2, =GPIO_PORTE + (PORT_E_MASK << 2)
-  EOR R0, R0, #0x02
+  AND R0, R0, #0x02 ;NOTE. FOR THE COUNTING ON LEDS WE NEED TO DO EOR FOR D2 TO LIGHT UP
+  		    ;This is due to how we are handling the display seven segment
 	STR R0, [R2, #GPIO_DATA_OFFSET]		; write output to port B where the LEDs are
 
 	LDMFD		R13!,{R2, R15}		; pull the LR or return address and return
