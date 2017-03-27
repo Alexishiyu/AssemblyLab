@@ -34,7 +34,8 @@ loop_post_init
 	MUL R4, R4, R8   ;multiply random number by 196(d) to get a range from 0 to 200508 (20 seconds)
 	MOV R8, #0xC350
 	ADD R4, R4, R8 ;add 50 000(d) to get a range of 20000 to 99794 which is 2 to about 10 seconds
-	BL Delay
+
+    BL Delay
 	MOV R0, R11
 	BL CountingLoop
 
@@ -48,11 +49,11 @@ CountingLoop	STMFD		R13!,{R0,R1,R4,R5,R14}
         				   ;delay of 0.5 seconds
         			
 LoopCounter
-						MOV R4, #5000
+						MOV R4, #10 ; new added
         					;Checks if the button is pressed or not….every time if button is pressed a new random number will be generated and stored in R11
                          BL Delay
-						BL Display_LED
-        				 SUB R0, #1
+						 BL Display_LED
+        				 SUB R0, #10 ;;new added
 						 CMP R6, #0x0	
 						 BEQ CountingLoop
 						 CMP R0,#0
@@ -63,7 +64,7 @@ LoopCounter
 
 FLASH_LEDS	STMFD		R13!,{R0,R1,R4,R5,R14}        				 ;BL Delay
 
-						 ;MOV R4, #500 
+						 MOV R4, #10;; new added generate 1s delay between flashing
 						 BL Delay
 						 MOV R0,#2_00000000
 	                     BL Display_LED
@@ -89,7 +90,7 @@ FLASH_LEDS	STMFD		R13!,{R0,R1,R4,R5,R14}        				 ;BL Delay
 
 
 
-SOMEDELAY             EQU 400      ; faction of a second delay
+SOMEDELAY             EQU 400000      ; faction of a second delay
 
 ; ----------Display_LED----------------
 ; Display the 8-bit number on the 8 LEDs
@@ -343,7 +344,7 @@ Port_Init_Individual
     
 Delay			STMFD		R13!,{R0,R2, R14}
 		;
-		; code to generate a delay of 0.1mS * R0 times
+		; code to generate a delay of 0.1S * R0 times
 		;
 
 				MOV R0, R4
